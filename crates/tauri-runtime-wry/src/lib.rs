@@ -3615,8 +3615,8 @@ fn handle_user_message<T: UserEvent>(
               target_os = "openbsd"
             ))]
             let reparent_result = {
-              if let Some(container) = new_parent_window.default_vbox() {
-                webview.inner.reparent(container)
+              if let Some(vbox) = new_parent_window.default_vbox() {
+                window::WebviewContainers::reparent(&webview.inner, vbox)
               } else {
                 Err(wry::Error::MessageSender)
               }
@@ -5174,9 +5174,13 @@ You may have it installed on another user account, but it is not available for t
       target_os = "android"
     )))]
     WebviewKind::WindowChild => {
-      // only way to account for menu bar height, and also works for multiwebviews :)
-      let vbox = window.default_vbox().unwrap();
-      webview_builder.build_gtk(vbox)
+      // the default vbox is the only way to account for the menu bar height
+      let containers = window::WebviewContainers::get_or_create(window.default_vbox().unwrap());
+      if webview_attributes.bounds.is_some() {
+        webview_builder.build_gtk(&containers.positioned)
+      } else {
+        webview_builder.build_gtk(&containers.filling)
+      }
     }
     #[cfg(any(
       target_os = "windows",
