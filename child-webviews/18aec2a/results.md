@@ -75,7 +75,7 @@ The window is at the top left corner of the display on X11. These runs have `WEB
 
 | | base (dev) | pr (#15704) | old (overlay branch) | sloper (desktop pin) | after (this branch) |
 |---|---|---|---|---|---|
-| X11, in the screenshot | - | 300x280 at (40, 320) | - | - | 300x280 at (40, 320) |
+| X11, in the screenshot | 800x300 at (0, 300) | 300x280 at (40, 320) | 300x280 at (40, 320) | 300x280 at (40, 320) | 300x280 at (40, 320) |
 
 #### Clicks: one click on each of blue, green and the window's webview (counts of clicks per page)
 
@@ -86,7 +86,7 @@ The window is at the top left corner of the display on X11. These runs have `WEB
 
 #### Drops of a file, dragged from another window
 
-A cell shows the drop events that each page got. Each row should show +1 for the page under the pointer.
+A cell shows the drop events that each page got. Each row should show +1 for the page under the pointer. On `dev` the child is stacked below the window's webview, so the point beside the child is on the child.
 
 | | base (dev) | pr (#15704) | old (overlay branch) | sloper (desktop pin) | after (this branch) |
 |---|---|---|---|---|---|
@@ -101,13 +101,14 @@ A cell shows the drop events that each page got. Each row should show +1 for the
 
 | | base (dev) | pr (#15704) | old (overlay branch) | sloper (desktop pin) | after (this branch) |
 |---|---|---|---|---|---|
-| milliseconds | 5/5/5/5/5/5 ms | 22/5/5/5/5/5 ms | 5/5/5/5/5/5 ms | 21/31/36/31/36/31 ms | 5/5/5/5/5/5 ms |
+| milliseconds | 5/5/5/5/5/5 ms | 21/5/5/5/5/5 ms | 5/5/5/5/5/5 ms | 21/32/36/31/32/34 ms | 5/5/5/5/5/5 ms |
 
-#### At rest for 5 s, a window with two webviews that auto-resize (X11): CPU of the app
+#### At rest for 5 s, after the window resized twice, a window with two webviews that auto-resize: CPU of the app, layout passes of GTK, and allocations of the widget that holds the webviews
 
 | | base (dev) | pr (#15704) | old (overlay branch) | sloper (desktop pin) | after (this branch) |
 |---|---|---|---|---|---|
-| share of one core | 0.0 % (0 ticks of 10 ms) | 0.0 % (0 ticks of 10 ms) | 0.0 % (0 ticks of 10 ms) | 2.4 % (12 ticks of 10 ms) | 0.0 % (0 ticks of 10 ms) |
+| X11 | 0.0 % of a core, 0 layout passes, 0 allocations of the room | 0.0 % of a core, 0 layout passes, 0 allocations of the room | 0.0 % of a core, 0 layout passes, 0 allocations of the room | 2.4 % of a core, 300 layout passes, 300 allocations of the room | 0.0 % of a core, 0 layout passes, 0 allocations of the room |
+| Wayland | 0.0 % of a core, 0 layout passes, 0 allocations of the room | 0.0 % of a core, 0 layout passes, 0 allocations of the room | 0.0 % of a core, 0 layout passes, 0 allocations of the room | 12.2 % of a core, 300 layout passes, 300 allocations of the room | 0.0 % of a core, 0 layout passes, 0 allocations of the room |
 
 #### The menu bar hides and shows (X11, 800x600 window, a webview and a child that resize with it)
 
@@ -125,6 +126,17 @@ The webviews that resize with the window should have the size of the room. With 
 |---|---|---|---|---|---|
 | X11 | menu opened, child got 0 clicks | menu opened, child got 0 clicks | menu opened, child got 0 clicks | menu opened, child got 0 clicks | menu opened, child got 0 clicks |
 | Wayland | menu opened, child got 0 clicks | menu did not open, child got 1 click | menu did not open, child got 1 click | menu opened, child got 0 clicks | menu opened, child got 0 clicks |
+
+#### The backport on v2.12.5 gives the same numbers as the branch on `dev`
+
+| scenario | X11 | Wayland |
+|---|---|---|
+| menu | same, 4 checkpoints | same, 4 checkpoints |
+| plain | same, 4 checkpoints | same, 4 checkpoints |
+| past | same, 3 checkpoints | same, 3 checkpoints |
+| multi | same, 3 checkpoints | same, 3 checkpoints |
+| reparent | same, 3 checkpoints | same, 3 checkpoints |
+| bounds | same, 5 checkpoints | same, 5 checkpoints |
 
 ### Results with a scale factor of 2
 

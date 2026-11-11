@@ -197,10 +197,12 @@ def latency():
     return cells(fn)
 
 
-def idle():
+def idle(session):
     def fn(v):
-        r = rec(load(v, "idle", "x11"), "idle-cpu")
-        return "{:.1f} % ({} ticks of 10 ms)".format(r["percent_of_one_core"], r["ticks"])
+        r = rec(load(v, "idle", session), "idle-cpu")
+        return "{:.1f} % of a core, {} layout passes, {} allocations of the room".format(
+            r["percent_of_one_core"], r.get("layouts", "?"), r.get("allocations", "?")
+        )
 
     return cells(fn)
 
@@ -226,6 +228,46 @@ def scale2():
             ("`Webview::reparent` of the child that was at (60, 60)", reparent("x11")),
         ],
     )
+
+
+def shape(doc):
+    """What a run says, apart from noise: per checkpoint, the webviews of each window (page, size, place in the window),
+    the room, and what `Webview::bounds` returns."""
+    out = {}
+    for r in doc["records"]:
+        if "gtk" not in r:
+            out[r["tag"]] = {k: v for k, v in r.items() if k != "tag"}
+            continue
+        windows = []
+        for w in r["gtk"]:
+            views = sorted(
+                (n["title"].split()[0], tuple(n["alloc"]), tuple(n["in_toplevel"]))
+                for n in w["tree"]
+                if n["type"] == "WebKitWebView"
+            )
+            rooms = [tuple(n["alloc"]) for n in w["tree"] if n["type"] in ROOMS]
+            windows.append((tuple(views), tuple(rooms), tuple(w["size"])))
+        tauri = {w["label"]: {x["label"]: x["bounds"] for x in w["webviews"]} for w in r["tauri"]}
+        out[r["tag"]] = {"windows": sorted(windows), "tauri": tauri}
+    return out
+
+
+def backport():
+    """The commits of the branch on the tag v2.12.5 (`backport`) against the branch on dev (`after`), per scenario."""
+    print("\n#### The backport on v2.12.5 gives the same numbers as the branch on `dev`\n")
+    print("| scenario | X11 | Wayland |")
+    print("|---|---|---|")
+    for scenario in ("menu", "plain", "past", "multi", "reparent", "bounds"):
+        cells = []
+        for session in ("x11", "wayland"):
+            a, b = load("after", scenario, session, ""), load("backport", scenario, session, "")
+            if not (a and b):
+                cells.append("-")
+                continue
+            sa, sb = shape(a), shape(b)
+            diff = [t for t in sa if sa[t] != sb.get(t)]
+            cells.append("same, {} checkpoints".format(len(sa)) if not diff else "differs at " + ", ".join(diff))
+        print(f"| {scenario} | {cells[0]} | {cells[1]} |")
 
 
 if __name__ == "__main__" and SUFFIX == "-scale2":
@@ -312,15 +354,15 @@ elif __name__ == "__main__":
             ("Wayland, child, on the child", drops("dndchild", "wayland", "dnd-over-child")),
             ("Wayland, child, on the window's webview beside the child", drops("dndchild", "wayland", "dnd-main-beside-child")),
         ],
-        "A cell shows the drop events that each page got. Each row should show +1 for the page under the pointer.",
+        "A cell shows the drop events that each page got. Each row should show +1 for the page under the pointer. On `dev` the child is stacked below the window's webview, so the point beside the child is on the child.",
     )
     table(
         "Time until the window's webview has the size of its room after `Window::set_size` (X11, six sizes)",
         [("milliseconds", latency())],
     )
     table(
-        "At rest for 5 s, a window with two webviews that auto-resize (X11): CPU of the app",
-        [("share of one core", idle())],
+        "At rest for 5 s, after the window resized twice, a window with two webviews that auto-resize: CPU of the app, layout passes of GTK, and allocations of the widget that holds the webviews",
+        [("X11", idle("x11")), ("Wayland", idle("wayland"))],
     )
     def edge(session):
         def fn(v):
@@ -356,3 +398,4 @@ elif __name__ == "__main__":
         "A child that reaches over the menu bar (child at (5, -60) 100x200): a click on the menu bar",
         [("X11", edge("x11")), ("Wayland", edge("wayland"))],
     )
+    backport()

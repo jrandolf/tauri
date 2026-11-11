@@ -648,11 +648,52 @@ fn drive(d: &mut Driver) {
       };
       // the ticks of this process, and of the whole process tree is not needed: the UI thread is in this one
       thread::sleep(Duration::from_millis(2000));
+      // at rest after changes too: the window resizes twice first
+      let w = d.app.get_window("main").unwrap();
+      w.set_size(LogicalSize::new(900., 650.)).unwrap();
+      thread::sleep(Duration::from_millis(1000));
+      w.set_size(LogicalSize::new(700., 500.)).unwrap();
+      thread::sleep(Duration::from_millis(2000));
+      // layout passes of the frame clock, and allocations of the widget that holds the webviews, while nothing changes:
+      // a layout that asks for another layout makes one of each per frame
+      let layouts = Arc::new(AtomicUsize::new(0));
+      let allocations = Arc::new(AtomicUsize::new(0));
+      {
+        let (layouts, allocations) = (layouts.clone(), allocations.clone());
+        d.on_main(move || {
+          fn each(widget: &gtk::Widget, f: &mut dyn FnMut(&gtk::Widget)) {
+            f(widget);
+            if let Some(container) = widget.downcast_ref::<gtk::Container>() {
+              for child in container.children() {
+                each(&child, f);
+              }
+            }
+          }
+          for top in gtk::Window::list_toplevels() {
+            if let Some(clock) = top.window().and_then(|w| w.frame_clock()) {
+              let layouts = layouts.clone();
+              clock.connect_layout(move |_| {
+                layouts.fetch_add(1, Ordering::SeqCst);
+              });
+            }
+            each(&top, &mut |w| {
+              let name = w.type_().name();
+              if name == "TauriWebviewContainer" || name == "GtkScrolledWindow" {
+                let allocations = allocations.clone();
+                w.connect_size_allocate(move |_, _| {
+                  allocations.fetch_add(1, Ordering::SeqCst);
+                });
+              }
+            });
+          }
+        });
+      }
       let (a, t0) = (cpu(), std::time::Instant::now());
       thread::sleep(Duration::from_millis(5000));
       let (b, secs) = (cpu(), t0.elapsed().as_secs_f64());
       d.records.push(json!({
         "tag": "idle-cpu", "ticks": b - a, "seconds": secs, "percent_of_one_core": (b - a) as f64 / 100.0 / secs * 100.0,
+        "layouts": layouts.load(Ordering::SeqCst), "allocations": allocations.load(Ordering::SeqCst),
       }));
     }
     #[cfg(feature = "unstable")]
