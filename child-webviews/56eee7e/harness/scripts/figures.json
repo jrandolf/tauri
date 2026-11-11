@@ -1,0 +1,81 @@
+[
+  {
+    "name": "p1-menu-bar",
+    "scenario": "menu",
+    "session": "x11",
+    "shot_name": "start",
+    "render": "-nodmabuf",
+    "before_caption": "Before (#15704): the webview is 600x400 in a room of 600x375",
+    "after_caption": "After: the webview is 600x375, the room below the menu bar",
+    "size": [
+      600,
+      400
+    ]
+  },
+  {
+    "name": "p2-menu-bar-wheel",
+    "scenario": "menu",
+    "session": "x11",
+    "shot_name": "after-wheel",
+    "render": "-nodmabuf",
+    "before_caption": "Before: after 5 wheel clicks, the webviews moved up 25 px",
+    "after_caption": "After: after 5 wheel clicks, nothing moved",
+    "size": [
+      600,
+      400
+    ]
+  },
+  {
+    "name": "p3-child-past-bottom-wheel",
+    "scenario": "past",
+    "session": "x11",
+    "shot_name": "after-wheel",
+    "render": "-nodmabuf",
+    "before_caption": "Before: child at (40, 320) 300x400, after 5 wheel clicks: up 120 px",
+    "after_caption": "After: clipped at the edge of the window, nothing moved",
+    "size": [
+      800,
+      600
+    ]
+  },
+  {
+    "name": "p4-wayland-window-webview",
+    "scenario": "plain",
+    "session": "wayland",
+    "shot_name": "start",
+    "render": "-nodmabuf",
+    "before_caption": "Before (Wayland): the webview is 852x689 in a room of 800x600",
+    "after_caption": "After (Wayland): the webview is 800x600",
+    "size": [
+      800,
+      600
+    ]
+  },
+  {
+    "name": "p5-wayland-multiwebview",
+    "scenario": "multi",
+    "session": "wayland",
+    "shot_name": "start",
+    "render": "-nodmabuf",
+    "before_caption": "Before (Wayland): each child is 426x345",
+    "after_caption": "After (Wayland): each child is 400x300",
+    "size": [
+      800,
+      600
+    ],
+    "color": "2563eb"
+  },
+  {
+    "name": "p6-reparent",
+    "scenario": "reparent",
+    "session": "x11",
+    "shot_name": "after-reparent",
+    "render": "-nodmabuf",
+    "before_caption": "Before: the child that was at (60, 60) is at (0, 0) in the new window",
+    "after_caption": "After: the child is at (60, 60)",
+    "size": [
+      1020,
+      400
+    ]
+  }
+]

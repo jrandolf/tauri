@@ -1,0 +1,20 @@
+[package]
+name = "childviews"
+version = "0.0.0"
+edition = "2024"
+publish = false
+
+[dependencies]
+tauri = { path = "../../crates/tauri", features = ["webview-data-url"] }
+serde_json = "1"
+gtk = { version = "0.18", features = ["v3_24"] }
+webkit2gtk = { version = "2", features = ["v2_40"] }
+urlencoding = "2"
+
+[features]
+default = ["unstable"]
+# without it, the app has no children: the window of the default build of a Tauri app
+unstable = ["tauri/unstable"]
+
+[build-dependencies]
+tauri-build = { path = "../../crates/tauri-build" }
