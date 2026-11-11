@@ -5,10 +5,10 @@ set -u
 H=$(cd "$(dirname "$0")/.." && pwd)
 cd "$H"
 export CARGO_HTTP_MULTIPLEXING=false
-echo "== build"; TAIL=3 bash scripts/build.sh base pr after old sloper backport 2>&1 | grep -E "^==|^error|Finished"
+echo "== build"; TAIL=3 bash scripts/build.sh base pr after old sizes backport 2>&1 | grep -E "^==|^error|Finished"
 echo "== build without unstable"; bash scripts/build-plain.sh base after 2>&1 | grep -E "^==|^error|Finished"
 echo "== click again"
-for v in base pr old sloper after; do for s in x11 wayland; do scripts/run.sh $s $v click; done; done
+for v in base pr old sizes after; do for s in x11 wayland; do scripts/run.sh $s $v click; done; done
 for v in pr after; do for s in x11 wayland; do RENDER=nodmabuf scripts/run.sh $s $v click; done; done
 echo "== backport on v2.12.5"
 for s in x11 wayland; do scripts/run.sh $s backport menu plain past multi reparent bounds; done

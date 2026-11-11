@@ -4,7 +4,8 @@
 # Log: checks/mac-checks.log
 cd /Volumes/External/Sources/tauri-child-webviews || exit 1
 export CARGO_BUILD_JOBS=4 CARGO_HTTP_MULTIPLEXING=false
-HEAVY="bash $HOME/.sloper-watch/heavy.sh nice -n 19"
+# HEAVY can prefix each cargo run, for example with a script that limits the runs at once
+HEAVY=${HEAVY:-nice -n 19}
 LOG=${CHECKS_LOG:-/tmp/mac-checks.log}
 : >"$LOG"
 step() {

@@ -10,8 +10,8 @@
 #   after   this branch, with its own pin of the wry fork     AFTER_REV (the last commit)
 #   old     the older overlay branch for #10420               OLD_REV   (f16fe7f8c), with wry
 #           (its Cargo.toml has no wry pin: wry-old is patched in)  OLD_WRY_REV (4f9fb76)
-#   sloper  the desktop's pin: c5ae4bd on v2.12.5             SLOPER_REV (c5ae4bd), which pins
-#           jrandolf/wry sloper/v0.57.1-linux-child-bounds in its Cargo.lock
+#   sizes   #15704 plus a change that sizes the webviews from the room of the scrolled window: c5ae4bd on v2.12.5, SIZES_REV;
+#           its Cargo.lock pins jrandolf/wry sloper/v0.57.1-linux-child-bounds (1e01aff)
 #   backport the commits of `after` on the tag tauri-v2.12.5      BACKPORT_REV (branch fix/linux-child-webviews-v2.12.5)
 #   wry     the wry clone at WRY_REV, for the wry test and checks
 #   wry-dev the wry commit that the branch is based on
@@ -24,7 +24,7 @@ PR_REV=${PR_REV:-pr-15704-on-dev}
 AFTER_REV=${AFTER_REV:-fix/linux-child-webviews}
 OLD_REV=${OLD_REV:-f16fe7f8c}
 OLD_WRY_REV=${OLD_WRY_REV:-4f9fb76}
-SLOPER_REV=${SLOPER_REV:-c5ae4bd3b81a87c3258b52031e9d6e0c8c903846}
+SIZES_REV=${SIZES_REV:-c5ae4bd3b81a87c3258b52031e9d6e0c8c903846}
 WRY_REV=${WRY_REV:-fix/linux-reparent-position}
 WRY_BASE=${WRY_BASE:-upstream/dev}
 only=${*:-base pr after}
@@ -68,11 +68,11 @@ ensure_pr_branch() {
 for v in $only; do
   case $v in
     app) # the test app only, in the trees that are already there
-      for t in base pr after old sloper backport; do [ -d "$H/vendor/$t" ] && add_app "$H/vendor/$t"; done ;;
+      for t in base pr after old sizes backport; do [ -d "$H/vendor/$t" ] && add_app "$H/vendor/$t"; done ;;
     base) extract "$TAURI" "$BASE_REV" "$H/vendor/base"; add_app "$H/vendor/base" ;;
     pr) ensure_pr_branch; extract "$TAURI" "$PR_REV" "$H/vendor/pr"; add_app "$H/vendor/pr" ;;
     after) extract "$TAURI" "$AFTER_REV" "$H/vendor/after"; add_app "$H/vendor/after" ;;
-    sloper) extract "$TAURI" "$SLOPER_REV" "$H/vendor/sloper"; add_app "$H/vendor/sloper" ;;
+    sizes) extract "$TAURI" "$SIZES_REV" "$H/vendor/sizes"; add_app "$H/vendor/sizes" ;;
     backport) extract "$TAURI" "${BACKPORT_REV:-fix/linux-child-webviews-v2.12.5}" "$H/vendor/backport"; add_app "$H/vendor/backport" ;;
     old)
       extract "$TAURI" "$OLD_REV" "$H/vendor/old"
@@ -96,7 +96,7 @@ for v in $only; do
     base) git -C "$TAURI" rev-parse --short=9 "$BASE_REV" | sed "s/^/  base   /" ;;
     pr) git -C "$TAURI" rev-parse --short=9 "$PR_REV" | sed "s/^/  pr     /" ;;
     after) git -C "$TAURI" rev-parse --short=9 "$AFTER_REV" | sed "s/^/  after  /" ;;
-    sloper) git -C "$TAURI" rev-parse --short=9 "$SLOPER_REV" | sed "s/^/  sloper /" ;;
+    sizes) git -C "$TAURI" rev-parse --short=9 "$SIZES_REV" | sed "s/^/  sizes /" ;;
     old) git -C "$TAURI" rev-parse --short=9 "$OLD_REV" | sed "s/^/  old    /" ;;
     wry) git -C "$WRY" rev-parse --short=9 "$WRY_REV" | sed "s/^/  wry    /" ;;
   esac

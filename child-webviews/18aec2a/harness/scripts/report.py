@@ -4,7 +4,7 @@
 usage: report.py [OUTDIR [SUFFIX]]      (default: out) writes the tables to stdout. SUFFIX picks the runs of a
 directory name such as pr-scale2 (GDK_SCALE=2): `report.py out -scale2`.
 
-Each column is a variant of the Tauri tree (scripts/sync.sh): base, pr (#15704), old, sloper, after.
+Each column is a variant of the Tauri tree (scripts/sync.sh): base, pr (#15704), old (an overlay), sizes (#15704 plus a change of sizes), after.
 A cell reads "-" where the run was not made.
 """
 import json
@@ -18,8 +18,8 @@ SUFFIX = sys.argv[2] if len(sys.argv) > 2 else ""  # e.g. -scale2: the runs with
 VARIANTS = [
     ("base", "dev"),
     ("pr", "#15704"),
-    ("old", "overlay branch"),
-    ("sloper", "desktop pin"),
+    ("old", "overlay, f16fe7f8c"),
+    ("sizes", "#15704 + sizes from the room, c5ae4bd"),
     ("after", "this branch"),
 ]
 ROOMS = ("GtkScrolledWindow", "GtkLayout", "TauriWebviewContainer", "GtkOverlay")
@@ -230,6 +230,26 @@ def scale2():
     )
 
 
+def rest_and_timing():
+    """The branch on dev against its backport on v2.12.5: at rest, and the time to the room."""
+    print("\n#### The backport at rest and in time\n")
+    print("| | `after` (on `dev`) | `backport` (on v2.12.5) |")
+    print("|---|---|---|")
+    def rest(session, v):
+        r = rec(load(v, "idle", session, ""), "idle-cpu")
+        if not r:
+            return "-"
+        return "{:.1f} % of a core, {} layout passes".format(r["percent_of_one_core"], r.get("layouts", "?"))
+
+    def ms(v):
+        r = rec(load(v, "latency", "x11", ""), "latency")
+        return "/".join(str(x["ms"]) for x in r["results"][:6]) + " ms" if r else "-"
+
+    print("| X11, at rest after two resizes | {} | {} |".format(rest("x11", "after"), rest("x11", "backport")))
+    print("| Wayland, at rest after two resizes | {} | {} |".format(rest("wayland", "after"), rest("wayland", "backport")))
+    print("| X11, time to the size of the room after `Window::set_size` | {} | {} |".format(ms("after"), ms("backport")))
+
+
 def shape(doc):
     """What a run says, apart from noise: per checkpoint, the webviews of each window (page, size, place in the window),
     the room, and what `Webview::bounds` returns."""
@@ -399,3 +419,4 @@ elif __name__ == "__main__":
         [("X11", edge("x11")), ("Wayland", edge("wayland"))],
     )
     backport()
+    rest_and_timing()

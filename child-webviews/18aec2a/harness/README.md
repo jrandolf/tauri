@@ -1,8 +1,8 @@
 # Harness for the child webviews of Tauri on Linux
 
 It measures what GTK does with the webviews of a Tauri window, before and after the change, on a Linux box, under X11 (Xvfb) and Wayland
-(Weston 13). It was run on Ubuntu 24.04 arm64 (GTK 3.24.41, WebKitGTK 2.52.6) with Rust 1.90, on a build box (`~/.sloper-watch/box`). The Mac
-is only used for `git archive`, the pictures and the macOS checks.
+(Weston 13). It was run on Ubuntu 24.04 arm64 (GTK 3.24.41, WebKitGTK 2.52.6) with Rust 1.90, on a cloud VM. A Mac made the trees (`git archive`), the
+pictures and the macOS checks.
 
 ## What it tests
 
@@ -38,22 +38,21 @@ say. The pictures are screenshots of the whole display. The feature `unstable` i
 | `after` | `69fc9c594`, branch `fix/linux-child-webviews` of `jrandolf/tauri` | this change, with `jrandolf/wry` `fix/linux-reparent-position` `b24dae77` |
 | `backport` | `9341158ca`, branch `fix/linux-child-webviews-v2.12.5` | the same three commits on the tag `tauri-v2.12.5` |
 | `old` | `f16fe7f8c` | an older branch for tauri#10420: an overlay with a box and a `gtk::Fixed`, with wry `4f9fb76` patched in |
-| `sloper` | `c5ae4bd3b` | #15704 and a fix for sizes, on v2.12.5: what one downstream app pins (wry `1e01aff`) |
+| `sizes` | `c5ae4bd3b` | #15704 and a change that sizes the webviews from the room of its scrolled window, on v2.12.5 (wry `1e01aff`, Lucas's commit on the tag `wry-v0.57.1`) |
 
 ## Run it again
 
-On the Mac, from this folder (the clones are in `/Volumes/External/Sources/tauri-child-webviews` and `wry-child-webviews`; `upstream` is the
-Tauri repository):
+The scripts run on any Ubuntu 24.04 machine. `scripts/setup-box.sh` installs what the display sessions need (Xvfb, Weston 13, xdotool, ImageMagick, Pillow).
+`scripts/sync.sh` runs where the two clones are (`TAURI`, `WRY`; `upstream` is the Tauri repository) and writes `vendor/`. Copy this folder, with `vendor/`, to the Linux machine
+and run the rest there. The commands, with `box run` for a cloud VM that the folder is copied to before each run:
 
 ```sh
-scripts/sync.sh base pr after old sloper backport wry wry-dev   # vendor/ from the commits
-~/.sloper-watch/box up b13                                       # once
-~/.sloper-watch/box run b13 -- bash scripts/setup-box.sh         # once: packages for the display sessions
-~/.sloper-watch/box run b13 --pull out -- bash scripts/final3.sh   # build, checks, every measurement: about 30 minutes
+scripts/sync.sh base pr after old sizes backport wry wry-dev    # vendor/ from the commits
+box run NAME -- bash scripts/setup-box.sh                        # once: packages for the display sessions
+box run NAME --pull out -- bash scripts/final3.sh                # build, checks, every measurement: about 30 minutes
 python3 -I scripts/report.py out > results.md                    # the tables
 python3 -I scripts/report.py out -scale2 >> results.md           # scale factor 2
 python3 -I scripts/figures.py figures                            # the pictures
-~/.sloper-watch/box stop b13
 ```
 
 Smaller steps: `scripts/build.sh VARIANT...`, then `scripts/run.sh SESSION VARIANT SCENARIO...` (SESSION is `x11` or `wayland`;
@@ -66,6 +65,6 @@ that reaches past the edge of the window loses its top rows, in Xvfb, with every
 - `scripts/wry-test.sh`: the wry test of `gtk::Fixed` bounds, under Xvfb and Weston, and the three mutants of wry that it must fail on.
 - `scripts/mutate-test.sh`: the same for the GTK test of the webview container in `tauri-runtime-wry`.
 - `scripts/wry-checks.sh` and `checks/linux-checks.sh`: wry's and Tauri's fmt, clippy and tests on Linux (`final3.sh` runs them).
-- `checks/mac-checks.sh`: the macOS checks and the Windows target of `tauri-runtime-wry`, as Tauri's workflows run them. It runs on the Mac.
+- `checks/mac-checks.sh`: the macOS checks and the Windows target of `tauri-runtime-wry`, as Tauri's workflows run them. It runs on a Mac with the clone of Tauri (`HEAVY` can prefix each cargo run).
 - `explore/`: the probes that chose the container: `containers.py` (GTK containers and what they do with a webview), `frames.py` (frames until a child has the size
   of its room), `handler.py` (does a size request from a `size-allocate` handler hold).

@@ -26,10 +26,10 @@ stream pr default nodmabuf >out/stream-pr.log 2>&1 &
 sleep 4
 stream base default >out/stream-base.log 2>&1 &
 sleep 4
-{ stream old default; stream sloper default; } >out/stream-old-sloper.log 2>&1 &
+{ stream old default; stream sizes default; } >out/stream-old-sizes.log 2>&1 &
 wait
 echo "stage 2 $(date -u +%T)"
-for v in base pr old sloper after; do
+for v in base pr old sizes after; do
   scripts/run.sh x11 $v latency idle >>out/stream-timing.log 2>&1
 done
 echo "stage 3 $(date -u +%T)"
