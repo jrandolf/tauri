@@ -3783,7 +3783,7 @@ fn handle_user_message<T: UserEvent>(
               let scale_factor = window.scale_factor();
               let size = bounds.size.to_logical::<f32>(scale_factor);
               let position = bounds.position.to_logical::<f32>(scale_factor);
-              let window_size = window.inner_size().to_logical::<f32>(scale_factor);
+              let window_size = webview.area(&window);
               b.width_rate = size.width / window_size.width;
               b.height_rate = size.height / window_size.height;
               b.x_rate = position.x / window_size.width;
@@ -3802,7 +3802,7 @@ fn handle_user_message<T: UserEvent>(
               let size = size.to_logical::<f32>(scale_factor);
 
               if let Some(b) = &mut *webview.bounds.lock().unwrap() {
-                let window_size = window.inner_size().to_logical::<f32>(scale_factor);
+                let window_size = webview.area(&window);
                 b.width_rate = size.width / window_size.width;
                 b.height_rate = size.height / window_size.height;
               }
@@ -3823,7 +3823,7 @@ fn handle_user_message<T: UserEvent>(
               let position = position.to_logical::<f32>(scale_factor);
 
               if let Some(b) = &mut *webview.bounds.lock().unwrap() {
-                let window_size = window.inner_size().to_logical::<f32>(scale_factor);
+                let window_size = webview.area(&window);
                 b.x_rate = position.x / window_size.width;
                 b.y_rate = position.y / window_size.height;
               }
@@ -3926,7 +3926,7 @@ fn handle_user_message<T: UserEvent>(
           WebviewMessage::SetAutoResize(auto_resize) => match webview.bounds() {
             Ok(bounds) => {
               let scale_factor = window.scale_factor();
-              let window_size = window.inner_size().to_logical::<f32>(scale_factor);
+              let window_size = webview.area(&window);
               *webview.bounds.lock().unwrap() = if auto_resize {
                 let size = bounds.size.to_logical::<f32>(scale_factor);
                 let position = bounds.position.to_logical::<f32>(scale_factor);
@@ -4351,16 +4351,18 @@ fn handle_event_loop<T: UserEvent>(
             {
               let size = size.to_logical::<f32>(window.scale_factor());
               for webview in webviews {
-                if let Some(b) = &*webview.bounds.lock().unwrap() {
-                  if let Err(e) = webview.set_bounds(wry::Rect {
-                    position: LogicalPosition::new(size.width * b.x_rate, size.height * b.y_rate)
-                      .into(),
-                    size: LogicalSize::new(size.width * b.width_rate, size.height * b.height_rate)
-                      .into(),
-                  }) {
-                    log::error!("failed to autoresize webview: {e}");
-                  }
+                // GTK's room sizes the webviews of a window it has allocated, see `size_to_room`.
+                #[cfg(any(
+                  target_os = "linux",
+                  target_os = "dragonfly",
+                  target_os = "freebsd",
+                  target_os = "netbsd",
+                  target_os = "openbsd"
+                ))]
+                if gtk_room(&webview.webview()).is_some() {
+                  continue;
                 }
+                webview.resize_in(size);
               }
             }
           }
@@ -4693,6 +4695,13 @@ fn create_window<T: UserEvent, F: Fn(RawWindow) + Send + 'static>(
     let vbox = window.default_vbox().unwrap();
     vbox.pack_start(&scrolled, true, true, 0);
     scrolled.show_all();
+    // GTK reports the room of the webviews as it changes: size the webviews that resize with the window
+    // to it once GTK is done with the layout, since GTK sets the sizes after this handler.
+    let windows = context.main_thread.windows.clone();
+    scrolled.connect_size_allocate(move |_, _| {
+      let windows = windows.clone();
+      gtk::glib::idle_add_local_once(move || size_to_room(&windows, window_id));
+    });
     Some(fixed)
   };
   #[cfg(all(
@@ -4789,6 +4798,114 @@ struct WebviewBounds {
   y_rate: f32,
   width_rate: f32,
   height_rate: f32,
+}
+
+impl WebviewWrapper {
+  /// The size that the bounds of this webview are shares of: the room GTK gives it on Linux, the inner
+  /// size of the window elsewhere.
+  fn area(&self, window: &Window) -> LogicalSize<f32> {
+    #[cfg(any(
+      target_os = "linux",
+      target_os = "dragonfly",
+      target_os = "freebsd",
+      target_os = "netbsd",
+      target_os = "openbsd"
+    ))]
+    if let Some(room) = gtk_room(&self.webview()) {
+      return room;
+    }
+    window.inner_size().to_logical(window.scale_factor())
+  }
+
+  /// Sizes this webview to its share of `area`, if it resizes with the window.
+  fn resize_in(&self, area: LogicalSize<f32>) {
+    if let Some(b) = &*self.bounds.lock().unwrap() {
+      if let Err(e) = self.set_bounds(wry::Rect {
+        position: LogicalPosition::new(area.width * b.x_rate, area.height * b.y_rate).into(),
+        size: LogicalSize::new(area.width * b.width_rate, area.height * b.height_rate).into(),
+      }) {
+        log::error!("failed to autoresize webview: {e}");
+      }
+    }
+  }
+}
+
+/// The size that the bounds of a webview that is new in `window` are shares of, where it resizes with
+/// the window: the room that GTK gives the webviews, if it has allocated the window, else the inner
+/// size of the window.
+fn bounds_area(
+  window: &Window,
+  scale_factor: f64,
+  #[cfg(any(
+    target_os = "linux",
+    target_os = "dragonfly",
+    target_os = "freebsd",
+    target_os = "netbsd",
+    target_os = "openbsd"
+  ))]
+  gtk_fixed: Option<&gtk::Fixed>,
+) -> LogicalSize<f32> {
+  #[cfg(any(
+    target_os = "linux",
+    target_os = "dragonfly",
+    target_os = "freebsd",
+    target_os = "netbsd",
+    target_os = "openbsd"
+  ))]
+  if let Some(room) = gtk_fixed.and_then(gtk_room) {
+    return room;
+  }
+  window.inner_size().to_logical(scale_factor)
+}
+
+/// The room that GTK gives the webviews of the window that holds `inside`, in logical pixels: the
+/// allocation of the scrolled window around their `GtkFixed`. `Window::inner_size` is bigger than
+/// the room: it counts the menu bar and, on Wayland, the client-side decorations (GTK's title bar
+/// and shadow). The allocation of the `GtkFixed` is not the room either, because it grows with the
+/// size requests of the webviews in it. None until GTK first allocates the window.
+#[cfg(any(
+  target_os = "linux",
+  target_os = "dragonfly",
+  target_os = "freebsd",
+  target_os = "netbsd",
+  target_os = "openbsd"
+))]
+fn gtk_room(inside: &impl gtk::prelude::IsA<gtk::Widget>) -> Option<LogicalSize<f32>> {
+  use gtk::prelude::*;
+  let room = inside
+    .ancestor(gtk::ScrolledWindow::static_type())?
+    .allocation();
+  (room.width() > 1 && room.height() > 1)
+    .then(|| LogicalSize::new(room.width() as f32, room.height() as f32))
+}
+
+/// Sizes the webviews of the window `window_id` that resize with it to the room that GTK gives them.
+/// GTK reports the room as it changes, which the window's size does not say: it also changes with
+/// the menu bar, and on Wayland with the client-side decorations.
+#[cfg(all(
+  feature = "unstable",
+  any(
+    target_os = "linux",
+    target_os = "dragonfly",
+    target_os = "freebsd",
+    target_os = "netbsd",
+    target_os = "openbsd"
+  )
+))]
+fn size_to_room(windows: &WindowsStore, window_id: WindowId) {
+  let Some(webviews) = windows
+    .0
+    .borrow()
+    .get(&window_id)
+    .map(|w| w.webviews.clone())
+  else {
+    return;
+  };
+  for webview in webviews {
+    if let Some(room) = gtk_room(&webview.webview()) {
+      webview.resize_in(room);
+    }
+  }
 }
 
 fn create_webview<T: UserEvent>(
@@ -5039,7 +5156,18 @@ You may have it installed on another user account, but it is not available for t
 
     webview_builder = webview_builder.with_bounds(bounds);
 
-    let window_size = window.inner_size().to_logical::<f32>(scale_factor);
+    let window_size = bounds_area(
+      window,
+      scale_factor,
+      #[cfg(any(
+        target_os = "linux",
+        target_os = "dragonfly",
+        target_os = "freebsd",
+        target_os = "netbsd",
+        target_os = "openbsd"
+      ))]
+      gtk_fixed,
+    );
 
     if webview_attributes.auto_resize {
       Some(WebviewBounds {
