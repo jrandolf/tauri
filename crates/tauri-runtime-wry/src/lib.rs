@@ -5592,3 +5592,22 @@ fn add_focus_change_listeners<T: UserEvent>(
     );
   }
 }
+
+#[cfg(test)]
+mod tests {
+  use super::*;
+
+  #[test]
+  fn navigation_to_an_address_that_does_not_parse_is_refused() {
+    // The handler allows every address, so only the parse can refuse.
+    for not_an_address in ["", "not an address"] {
+      assert!(
+        !allow_navigation(not_an_address, |_| true),
+        "{not_an_address:?} was allowed"
+      );
+    }
+    // The handler decides on an address that parses.
+    assert!(allow_navigation("https://tauri.app/", |_| true));
+    assert!(!allow_navigation("https://tauri.app/", |_| false));
+  }
+}
