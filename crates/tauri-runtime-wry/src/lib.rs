@@ -4824,6 +4824,11 @@ fn size_to_room(windows: &Arc<WindowsStore>, window_id: WindowId, room: Option<L
   }
 }
 
+// A handler decides on a parsed address, so an address that does not parse is refused.
+fn allow_navigation(url: &str, handler: impl Fn(&Url) -> bool) -> bool {
+  url.parse::<Url>().is_ok_and(|url| handler(&url))
+}
+
 fn create_webview<T: UserEvent>(
   kind: WebviewKind,
   window: &Window,
@@ -4984,12 +4989,8 @@ You may have it installed on another user account, but it is not available for t
   }
 
   if let Some(navigation_handler) = pending.navigation_handler {
-    webview_builder = webview_builder.with_navigation_handler(move |url| {
-      url
-        .parse()
-        .map(|url| navigation_handler(&url))
-        .unwrap_or(true)
-    });
+    webview_builder = webview_builder
+      .with_navigation_handler(move |url| allow_navigation(&url, &navigation_handler));
   }
 
   if let Some(new_window_handler) = pending.new_window_handler {
